@@ -1,0 +1,95 @@
+# dynamo-burst: fan a batch of Dynamo-shaped jobs across N ephemeral runners.
+#
+# Occasional "monster batch" bursts ONLY. See GUARDRAILS.md before use:
+# public-safe data only, repo-shaped batch work only.
+#
+# Flow:
+#   1. On your machine: python3 tools/split.py --jobs-dir <dynamo jobs> \
+#        --shards K --out-dir shards/
+#   2. Commit + push the shards/ directory.
+#   3. gh workflow run burst.yml -f shard_count=K [-f model=qwen2.5:0.5b]
+#   4. Each matrix runner installs Ollama, pulls the model, runs its shard,
+#      and uploads results as artifact burst-results-<shard>.
+#   5. Back on your machine: gh run download <run-id> -D burst-out/
+#      then python3 tools/collect.py --results-dir burst-out \
+#        --shards-dir shards/ --out manifest.json
+
+name: dynamo-burst
+
+on:
+  workflow_dispatch:
+    inputs:
+      shard_count:
+        description: "Number of shards (must match shards/shard-*.json files committed)"
+        required: true
+        default: "4"
+      model:
+        description: "Ollama model tag to pull on each runner"
+        required: true
+        default: "qwen2.5:0.5b"
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - id: set-matrix
+        run: |
+          N="${{ inputs.shard_count }}"
+          python3 -c "
+          import json, sys
+          n = int(sys.argv[1])
+          assert 1 <= n <= 256, 'shard_count must be 1..256'
+          print('matrix=' + json.dumps(['%04d' % i for i in range(n)]))
+          " "$N" >> "$GITHUB_OUTPUT"
+
+  burst:
+    needs: setup
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.setup.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          (ollama serve > /tmp/ollama.log 2>&1 &)
+          for i in $(seq 1 24); do
+            curl -sf http://127.0.0.1:11434/api/tags >/dev/null && break
+            sleep 5
+          done
+          curl -sf http://127.0.0.1:11434/api/tags >/dev/null \
+            || { echo "ollama did not start"; cat /tmp/ollama.log; exit 1; }
+
+      - name: Pull model
+        run: ollama pull "${{ inputs.model }}"
+
+      - name: Run shard
+        env:
+          OLLAMA_URL: http://127.0.0.1:11434
+        run: |
+          SHARD="shards/shard-${{ matrix.shard }}.json"
+          test -f "$SHARD" || { echo "missing $SHARD"; exit 1; }
+          mkdir -p results
+          python3 worker/worker.py \
+            --shard "$SHARD" \
+            --out results \
+            --model "${{ inputs.model }}"
+
+      - name: Upload shard results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: burst-results-${{ matrix.shard }}
+          path: results/
+          if-no-files-found: error
+          retention-days: 7
