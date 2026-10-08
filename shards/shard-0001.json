@@ -1,0 +1,12 @@
+[
+  {
+    "job_id": "shake-001",
+    "prompt_text": "Summarize in one sentence: Aesop fable: the boy who cried wolf.",
+    "max_output_tokens": 100
+  },
+  {
+    "job_id": "shake-005",
+    "prompt_text": "Summarize in one sentence: how bees make honey.",
+    "max_output_tokens": 100
+  }
+]

@@ -1,0 +1,12 @@
+[
+  {
+    "job_id": "shake-003",
+    "prompt_text": "Summarize in one sentence: why the sky is blue.",
+    "max_output_tokens": 100
+  },
+  {
+    "job_id": "shake-007",
+    "prompt_text": "Summarize in one sentence: the life of a star.",
+    "max_output_tokens": 100
+  }
+]

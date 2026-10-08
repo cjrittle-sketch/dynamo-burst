@@ -1,0 +1,12 @@
+[
+  {
+    "job_id": "shake-002",
+    "prompt_text": "Summarize in one sentence: photosynthesis in one paragraph.",
+    "max_output_tokens": 100
+  },
+  {
+    "job_id": "shake-006",
+    "prompt_text": "Summarize in one sentence: what causes tides.",
+    "max_output_tokens": 100
+  }
+]

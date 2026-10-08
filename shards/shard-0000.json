@@ -1,0 +1,12 @@
+[
+  {
+    "job_id": "shake-000",
+    "prompt_text": "Summarize in one sentence: Aesop fable: the tortoise and the hare.",
+    "max_output_tokens": 100
+  },
+  {
+    "job_id": "shake-004",
+    "prompt_text": "Summarize in one sentence: the water cycle.",
+    "max_output_tokens": 100
+  }
+]
